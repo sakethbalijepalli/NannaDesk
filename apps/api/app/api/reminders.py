@@ -34,7 +34,12 @@ async def confirm(event_id: int, payload: ConfirmEventRequest) -> dict:
         try:
             return engine.confirm_event(db, event_id, payload.outcome)
         except ValueError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
+            # "No such event" is a 404 (matches the sibling snooze endpoint
+            # below for the same condition); a wrong outcome for an
+            # existing event's kind is a 400 (code review caught the
+            # inconsistency — both cases were mapped to 400 here).
+            status = 404 if str(exc) == "No such event" else 400
+            raise HTTPException(status_code=status, detail=str(exc)) from exc
 
 
 @router.post("/reminders/{event_id}/snooze")

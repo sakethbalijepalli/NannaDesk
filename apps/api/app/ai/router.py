@@ -178,11 +178,18 @@ def route(message: str, known_medications: Optional[list[str]] = None) -> Router
         if GOVERNMENT_QUERY.search(message):
             return RouterResult(intent="search_government", args={"query": message})
     else:
-        if MEAL_CONFIRM.search(message):
+        # NEGATION guards these two unconditionally — code review caught
+        # that it was only applied to the named-medicine branch above:
+        # "I had not taken my tablet" matched MEDICATION_CONFIRM on the
+        # literal substring "i had ... tablet" and recorded TAKEN, the
+        # exact opposite of what was said. A negated statement falls
+        # through to `clarify` below rather than being treated as either
+        # confirmation or its opposite — still never guessing.
+        if not NEGATION.search(lowered) and MEAL_CONFIRM.search(message):
             meal_type = _extract_meal(message)
             if meal_type:
                 return RouterResult(intent="record_meal", args={"meal_type": meal_type})
-        if MEDICATION_CONFIRM.search(message):
+        if not NEGATION.search(lowered) and MEDICATION_CONFIRM.search(message):
             return RouterResult(intent="record_medication_statement")
         if PENDING_QUERY.search(message):
             return RouterResult(intent="get_pending_cases")

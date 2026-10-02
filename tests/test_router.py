@@ -182,3 +182,16 @@ def test_question_about_a_named_medicine_is_not_sent_to_free_chat():
 def test_explain_this_verbatim_from_spec_20_3_step_5():
     result = route("Explain this to me.")
     assert result.intent == "explain_latest_report"
+
+
+def test_generic_negated_meal_statement_is_not_a_confirmation():
+    # Code review: NEGATION was only guarding the named-medicine branch;
+    # the generic (unnamed) MEAL_CONFIRM/MEDICATION_CONFIRM checks had no
+    # negation guard at all and matched on the bare substring.
+    result = route("I had not eaten breakfast yet")
+    assert result.intent != "record_meal"
+
+
+def test_generic_negated_medication_statement_is_not_a_confirmation():
+    result = route("I had not taken my tablet")
+    assert result.intent != "record_medication_statement"

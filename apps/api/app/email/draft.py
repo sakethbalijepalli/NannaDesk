@@ -2,6 +2,7 @@
 §14.2, §14.3) — a blank composer he'd have to hand-type isn't what the
 spec means by "Write an email about my PF payment."
 """
+import re
 import sqlite3
 
 from app.ai.llm import LLMUnavailable, LLMProvider, get_llm_provider
@@ -14,10 +15,13 @@ details not given to you."""
 
 
 def _match_case(db: sqlite3.Connection, request_text: str) -> dict | None:
+    # Word-boundary match, not plain substring — "pf" as a bare `in` check
+    # matched inside "helpful", misattributing an unrelated email draft to
+    # the PF case (code review caught this).
     lowered = request_text.lower()
     keyword_by_type = {"pf": "PF", "prc": "PRC", "salary": "GENERAL", "pension": "GENERAL"}
     for keyword, case_type in keyword_by_type.items():
-        if keyword in lowered:
+        if re.search(rf"\b{re.escape(keyword)}\b", lowered):
             row = db.execute(
                 "SELECT * FROM cases WHERE type = ? ORDER BY updated_at DESC LIMIT 1", (case_type,)
             ).fetchone()

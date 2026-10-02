@@ -39,6 +39,14 @@ async def test_trailing_punctuation_on_the_query_does_not_block_a_match(monkeypa
     assert len(result.sources) == 1
 
 
+def test_candidate_url_keyword_matches_word_boundaries_not_substrings():
+    # Code review: "da" as a bare `in` check matched inside "update",
+    # routing a salary question to the generic GO page instead of treasury.
+    from app.government.search import _candidate_urls
+    assert _candidate_urls("Any salary update?") == ["https://treasury.telangana.gov.in/"]
+    assert _candidate_urls("is this helpful") != ["https://tgepfo.cgg.gov.in/"]
+
+
 async def test_short_acronym_does_not_match_as_a_substring_of_another_word(monkeypatch):
     # "da" as a plain substring matches inside "upDAted" — regression test
     # for find_passages, exercised through the full search_government path.

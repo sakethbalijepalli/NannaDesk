@@ -7,6 +7,7 @@ allowlisted official page, with a timestamp Dad can see — or an explicit
 the LLM's own training-time knowledge or to the personal document index.
 """
 import logging
+import re
 from datetime import datetime, timezone
 
 import httpx
@@ -43,9 +44,13 @@ class GovernmentRetrievalError(Exception):
 
 
 def _candidate_urls(query: str) -> list[str]:
+    # Word-boundary match, not plain substring — "da" and "pf" as bare
+    # `in` checks matched inside unrelated words ("update", "helpful"),
+    # routing a salary question to the generic GO page instead of the
+    # treasury site (code review caught this).
     lowered = query.lower()
     for keyword, urls in CANDIDATE_URLS.items():
-        if keyword != "_default" and keyword in lowered:
+        if keyword != "_default" and re.search(rf"\b{re.escape(keyword)}\b", lowered):
             return urls
     return CANDIDATE_URLS["_default"]
 

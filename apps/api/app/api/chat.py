@@ -7,7 +7,6 @@ from fastapi import APIRouter
 from app.ai.llm import LLMUnavailable, get_llm_provider
 from app.ai.prompts import SYSTEM_PROMPT
 from app.ai.router import route
-from app.audit import record_audit
 from app.clock import format_friendly_status, format_friendly_time
 from app.db.connection import get_db
 from app.db.models import Action, ChatRequest, ChatResponse, Source
@@ -87,18 +86,38 @@ async def chat(payload: ChatRequest) -> ChatResponse:
             )
 
         if decision.intent == "record_medication_statement":
-            # A statement like "I took my medicine" names no specific
-            # medicine. If the router already resolved one (named in the
-            # message, or a bare reply to "which one?"), use it directly;
-            # otherwise resolve deterministically: one pending med -> record
-            # it; more than one -> ask which (with buttons), never guess.
-            pending = [r for r in engine.get_medication_status(db) if r["status"] not in ("TAKEN", "SKIPPED")]
+            all_meds = engine.get_medication_status(db)
+            pending = [r for r in all_meds if r["status"] not in ("TAKEN", "SKIPPED")]
             named = decision.args.get("medication_name")
-            target = next((r for r in pending if r["med_name"] == named), None) if named else None
 
+            if named:
+                # The router already resolved a specific medicine (named in
+                # the message). This must confirm exactly that one or
+                # explain why not — never fall back to a different pending
+                # medicine (code review caught this: naming an
+                # already-confirmed medicine when exactly one other was
+                # still pending silently confirmed that unrelated one).
+                target = next((r for r in pending if r["med_name"] == named), None)
+                if target is not None:
+                    result = engine.record_medication(db, target["id"], "TAKEN")
+                    return ChatResponse(
+                        type="answer", message=f"Got it — {target['med_name']} confirmed.",
+                        actions=[Action(type="MEDICATION_CONFIRMED", payload=result)],
+                    )
+                already = next((r for r in all_meds if r["med_name"] == named), None)
+                if already:
+                    return ChatResponse(
+                        type="answer",
+                        message=f"{named} is already marked {format_friendly_status(already['status'])}.",
+                    )
+                return ChatResponse(type="answer", message=f"I don't have {named} scheduled today.")
+
+            # No medicine named ("I took my medicine") — resolve
+            # deterministically: one pending med -> record it; more than
+            # one -> ask which (with buttons), never guess.
             if not pending:
                 return ChatResponse(type="answer", message="Everything's already confirmed — nothing pending right now.")
-            if target is None and len(pending) > 1:
+            if len(pending) > 1:
                 names = ", ".join(r["med_name"] for r in pending)
                 return ChatResponse(
                     type="needs_confirmation",
@@ -108,10 +127,9 @@ async def chat(payload: ChatRequest) -> ChatResponse:
                         payload={"options": [{"event_id": r["id"], "name": r["med_name"]} for r in pending]},
                     )],
                 )
-            target = target or pending[0]
-            result = engine.record_medication(db, target["id"], "TAKEN")
+            result = engine.record_medication(db, pending[0]["id"], "TAKEN")
             return ChatResponse(
-                type="answer", message=f"Got it — {target['med_name']} confirmed.",
+                type="answer", message=f"Got it — {pending[0]['med_name']} confirmed.",
                 actions=[Action(type="MEDICATION_CONFIRMED", payload=result)],
             )
 
@@ -173,15 +191,16 @@ async def chat(payload: ChatRequest) -> ChatResponse:
 
         if decision.intent == "create_email_draft":
             draft = await build_draft(db, decision.args.get("request", payload.message))
-            cur = db.execute(
-                "INSERT INTO email_drafts (case_id, to_addr, subject, body, status) VALUES (?, ?, ?, ?, 'DRAFT')",
-                (draft["case_id"], draft["to_addr"], draft["subject"], draft["body"]),
-            )
-            record_audit(db, "EMAIL_DRAFT_CREATED", "email_draft", cur.lastrowid)
+            # Through the Pydantic-validated tool, not a raw INSERT — code
+            # review caught this duplicating app.ai.tools.create_email_draft
+            # without its argument validation.
+            from app.ai.tools import create_email_draft as tool_create_email_draft
+            from app.db.models import CreateEmailDraftArgs
+            saved = tool_create_email_draft(db, CreateEmailDraftArgs(**draft))
             return ChatResponse(
                 type="needs_confirmation",
                 message=f"Here's a draft to {draft['to_addr']} — review it below and press Send when ready.",
-                actions=[Action(type="EMAIL_DRAFT_CREATED", payload={"id": cur.lastrowid})],
+                actions=[Action(type="EMAIL_DRAFT_CREATED", payload={"id": saved["id"]})],
             )
 
         if decision.intent == "explain_latest_report":

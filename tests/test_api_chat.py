@@ -103,6 +103,37 @@ def test_question_and_negation_phrases_never_record_a_confirmation(db_path):
         assert row["status"] == "SCHEDULED", f"a confirmation was recorded from a non-confirming phrase: {row['status']}"
 
 
+def test_naming_an_already_confirmed_medicine_never_confirms_a_different_one(db_path):
+    # Code review: when the named medicine was already TAKEN and exactly
+    # one other was still pending, the code fell through to "target or
+    # pending[0]" and silently confirmed that unrelated medicine instead.
+    with _client(db_path) as client:
+        import sqlite3
+        from app.config import settings
+        conn = sqlite3.connect(settings.db_path)
+        for name in ("Metformin", "Atorvastatin"):
+            cur = conn.execute("INSERT INTO medications (name, instructions, active) VALUES (?, '', 1)", (name,))
+            conn.execute(
+                "INSERT INTO medication_schedules (medication_id, time, repeat_minutes, max_followups) VALUES (?, '09:00', 30, 2)",
+                (cur.lastrowid,),
+            )
+        conn.commit()
+        conn.close()
+
+        client.post("/api/chat", json={"message": "I took Metformin"})
+        resp = client.post("/api/chat", json={"message": "I took Metformin"})
+        assert "Atorvastatin" not in resp.json()["message"]
+
+        conn = sqlite3.connect(settings.db_path)
+        conn.row_factory = sqlite3.Row
+        atorvastatin = conn.execute(
+            "SELECT e.status FROM events e JOIN medication_schedules ms ON ms.id = e.medication_schedule_id "
+            "JOIN medications m ON m.id = ms.medication_id WHERE m.name = 'Atorvastatin'"
+        ).fetchone()
+        conn.close()
+        assert atorvastatin["status"] == "SCHEDULED"
+
+
 def test_ambiguous_medication_statement_asks_which_one_with_options(db_path):
     with _client(db_path) as client:
         import sqlite3

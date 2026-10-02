@@ -144,7 +144,10 @@ function ChooseMedication({
 
   // Once picked, the buttons disappear — the confirmation itself is the
   // new chat turn `onNote` adds below, so there's nothing left to click.
-  if (chosen) return null;
+  // Not `if (chosen)` — SQLite rowids start at 1 in practice, but an
+  // event_id of 0 would be falsy and leave the buttons visible after a
+  // pick (code review caught this).
+  if (chosen !== null) return null;
 
   return (
     <div className="mt-3 flex flex-wrap gap-2">

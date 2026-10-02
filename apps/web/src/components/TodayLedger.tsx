@@ -37,7 +37,11 @@ export function TodayLedger({
         const outcome = item.kind === "MEAL" ? "CONFIRMED" : "TAKEN";
         return (
           <div
-            key={`${item.kind}-${item.label}`}
+            // event_id, not kind+label — two schedules for the same
+            // medicine (e.g. twice daily) would otherwise collide and
+            // React could bind a button to the wrong row after a
+            // re-render (code review caught this).
+            key={item.event_id ?? `${item.kind}-${item.label}-${i}`}
             className="ledger-row py-4 flex items-center justify-between gap-4 animate-write-in"
             style={{ animationDelay: `${i * 60}ms` }}
           >
