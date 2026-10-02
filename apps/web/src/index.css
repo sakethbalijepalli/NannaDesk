@@ -1,0 +1,81 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* NannaDesk design tokens.
+   Direction: a household register/ledger — Dad is a government employee,
+   and the product's job (remembering, confirming, tracking cases) maps
+   naturally onto a ledger page rather than a SaaS dashboard. Ink-blue +
+   margin-red + stamp-green stand in for a fountain pen, a ruled margin
+   line, and a rubber confirmation stamp. Deliberately not the
+   cream-paper + terracotta-serif combination common in generic AI output.
+*/
+:root {
+  --paper: #ede6d6;
+  --paper-line: #d8cdb4;
+  --ink: #1f2a44;
+  --ink-soft: #4a5578;
+  --margin: #a13d2e;
+  --stamp: #3f6b4a;
+  --gold: #b8862e;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #191b20;
+    --paper-line: #2b2e36;
+    --ink: #ece6d8;
+    --ink-soft: #b7b1a0;
+    --margin: #d77a63;
+    --stamp: #6fae82;
+    --gold: #d8ab5c;
+  }
+}
+
+html {
+  background: var(--paper);
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: "Public Sans", "Noto Sans Telugu", sans-serif;
+  font-size: 1.125rem;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, .font-display {
+  font-family: "Fraunces", "Noto Serif Telugu", serif;
+}
+
+/* The one structural device of the page: a ruled ledger margin running
+   the height of the content column, with faint horizontal rule lines
+   between entries — this carries the "register book" identity instead
+   of cards/shadows. */
+.ledger {
+  position: relative;
+  border-left: 3px solid var(--margin);
+  padding-left: 1.5rem;
+}
+
+.ledger-row {
+  border-bottom: 1px solid var(--paper-line);
+}
+.ledger-row:last-child {
+  border-bottom: none;
+}
+
+:focus-visible {
+  outline: 3px solid var(--gold);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}

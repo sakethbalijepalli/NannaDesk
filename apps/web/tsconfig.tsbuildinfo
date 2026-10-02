@@ -1,0 +1,1 @@
+{"root":["./src/app.tsx","./src/main.tsx","./src/vite-env.d.ts","./src/components/micbutton.tsx","./src/components/navtabs.tsx","./src/components/todayledger.tsx","./src/hooks/usevoicerecorder.ts","./src/lib/api.ts","./src/pages/chat.tsx","./src/pages/home.tsx","./src/pages/reports.tsx","./src/pages/work.tsx","./src/types/api.ts"],"version":"5.9.3"}

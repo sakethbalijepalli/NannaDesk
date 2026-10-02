@@ -1,0 +1,27 @@
+# Python
+apps/api/.venv/
+__pycache__/
+*.pyc
+
+# Node
+node_modules/
+apps/web/dist/
+
+# Models (large binaries — not checked in)
+models/**/*.gguf
+models/**/*.bin
+
+# Local data (personal, never committed)
+data/*.db
+data/*.db-journal
+data/documents/*
+data/reports/*
+!data/documents/.gitkeep
+!data/reports/.gitkeep
+
+# Env
+.env
+.env.local
+
+# OS
+.DS_Store
