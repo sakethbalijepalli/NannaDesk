@@ -1,10 +1,11 @@
-export type Tab = "home" | "ask" | "documents" | "work";
+export type Tab = "home" | "ask" | "documents" | "work" | "settings";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "home", label: "Home" },
   { id: "ask", label: "Ask" },
   { id: "documents", label: "Documents" },
   { id: "work", label: "Payments & work" },
+  { id: "settings", label: "Settings" },
 ];
 
 export function NavTabs({ active, onChange }: { active: Tab; onChange: (t: Tab) => void }) {

@@ -57,9 +57,12 @@ export function Chat({ pendingMessage, onConsumed }: { pendingMessage: string | 
       <div className="flex-1 overflow-y-auto ledger pr-2">
         {turns.map((t, i) => (
           <div key={i} className="ledger-row py-4">
-            <p className="text-sm uppercase tracking-wide text-[var(--ink-soft)] mb-1">
-              {t.who === "dad" ? "You" : "NannaDesk"}
-            </p>
+            <div className="flex items-center justify-between gap-2 mb-1">
+              <p className="text-sm uppercase tracking-wide text-[var(--ink-soft)]">
+                {t.who === "dad" ? "You" : "NannaDesk"}
+              </p>
+              {t.who === "nannadesk" && <SpeakButton text={t.text} />}
+            </div>
             <p className="text-lg whitespace-pre-line">{t.text}</p>
             {t.sources && t.sources.length > 0 && (
               <ul className="mt-2 text-base text-[var(--ink-soft)]">
@@ -205,5 +208,47 @@ function DraftCard({ draftId }: { draftId: number }) {
         </>
       )}
     </div>
+  );
+}
+
+/** Reads a NannaDesk reply aloud via ElevenLabs — on demand (tap to hear),
+ * never automatic. Fails silently to a one-line note if voice output
+ * isn't configured: the text answer is already on screen either way, so
+ * this is a pure enhancement, never a blocker.
+ */
+function SpeakButton({ text }: { text: string }) {
+  const [state, setState] = useState<"idle" | "loading" | "unavailable">("idle");
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const play = async () => {
+    if (state === "loading") return;
+    setState("loading");
+    try {
+      const blob = await api.speak(text);
+      const url = URL.createObjectURL(blob);
+      audioRef.current?.pause();
+      const audio = new Audio(url);
+      audioRef.current = audio;
+      audio.onended = () => URL.revokeObjectURL(url);
+      await audio.play();
+      setState("idle");
+    } catch {
+      setState("unavailable");
+    }
+  };
+
+  if (state === "unavailable") {
+    return <span className="text-sm text-[var(--ink-soft)]">voice output not set up</span>;
+  }
+
+  return (
+    <button
+      onClick={play}
+      disabled={state === "loading"}
+      aria-label="Read this reply aloud"
+      className="text-xl leading-none text-[var(--ink-soft)] hover:text-[var(--ink)] disabled:opacity-50"
+    >
+      {state === "loading" ? "…" : "🔊"}
+    </button>
   );
 }

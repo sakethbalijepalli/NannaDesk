@@ -75,3 +75,38 @@ export interface GovernmentAnswer {
   answer: string;
   sources: Source[];
 }
+
+export interface Profile {
+  id?: number;
+  name: string;
+  preferred_language: "en" | "te" | "te-en";
+  department: string | null;
+  designation: string | null;
+  office: string | null;
+  employee_code: string | null;
+  ddo_name: string | null;
+  ddo_email: string | null;
+  signature: string | null;
+  family_escalation_enabled: boolean;
+  family_contact_name: string | null;
+  family_contact_email: string | null;
+}
+
+export interface MedicationScheduleIn {
+  time: string; // "HH:MM"
+  meal_dependency: "breakfast" | "lunch" | "dinner" | null;
+  repeat_minutes: number;
+  max_followups: number;
+}
+
+export interface Medication {
+  id: number;
+  name: string;
+  instructions: string | null;
+  active: boolean;
+  schedule_id: number;
+  time: string;
+  meal_dependency: "breakfast" | "lunch" | "dinner" | null;
+  repeat_minutes: number;
+  max_followups: number;
+}

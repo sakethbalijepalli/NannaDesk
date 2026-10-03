@@ -46,6 +46,13 @@ class Settings(BaseSettings):
     )
     government_fetch_timeout_seconds: float = 10.0
 
+    # Text-to-speech (ElevenLabs). The API key itself is deliberately NOT
+    # here — see app/voice/tts.py and main.py's load_dotenv() call for why
+    # it's read as a plain ELEVENLABS_API_KEY, following ElevenLabs' own
+    # documented convention rather than our NANNADESK_ prefix.
+    elevenlabs_voice_id: str = "EXAVITQu4vr4xnSDxMaL"  # "Sarah" — soft, warm; matches the spec's personality (§10.3)
+    elevenlabs_model_id: str = "eleven_multilingual_v2"  # long-form quality; see tts.py's docstring on Telugu coverage
+
     # Reminder escalation
     family_escalation_default_enabled: bool = False
 

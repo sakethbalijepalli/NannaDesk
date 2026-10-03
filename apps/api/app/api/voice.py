@@ -9,9 +9,11 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, File, HTTPException, Response, UploadFile
 
 from app.config import PROJECT_ROOT
+from app.db.models import SpeakRequest
+from app.voice.tts import synthesize_speech
 
 router = APIRouter()
 
@@ -50,3 +52,16 @@ async def transcribe(file: UploadFile = File(...)) -> dict:
             raise HTTPException(status_code=503, detail=str(exc)) from exc
 
     return {"transcript": text}
+
+
+@router.post("/voice/speak")
+async def speak(payload: SpeakRequest) -> Response:
+    """Spoken version of a NannaDesk reply (ElevenLabs text-to-speech).
+    On-demand, not automatic on every chat turn — Dad taps to hear it,
+    rather than audio playing unprompted (spec's accessibility principle:
+    give him control, don't assume what he wants).
+    """
+    audio = await synthesize_speech(payload.text)
+    if audio is None:
+        raise HTTPException(status_code=503, detail="Voice output isn't set up yet.")
+    return Response(content=audio, media_type="audio/mpeg")

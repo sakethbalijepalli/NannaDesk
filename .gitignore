@@ -25,3 +25,11 @@ data/reports/*
 
 # OS
 .DS_Store
+
+# Agent-installed skills (devrelay/skills.sh) — local dev tooling, not app code
+.agents/
+.claude/skills/
+skills-lock.json
+
+# TypeScript incremental build cache — machine-specific, regenerated
+apps/web/tsconfig.tsbuildinfo

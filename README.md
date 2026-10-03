@@ -26,8 +26,10 @@ an already-decided, already-fetched result.
 | Email | **Mock provider**, backed by the real `case_messages`/`cases` tables (not a toy in-memory list) — draft/search/send/follow-up-date all persist. Outlook/Microsoft Graph (`app/email/outlook.py`) needs an Azure app registration this build doesn't have — it raises a clear "not connected" error rather than silently falling back. |
 | Family escalation | Implemented, disabled by default (`profile.family_escalation_enabled`) |
 | Voice transcription | **Verified end-to-end**: `say` → ffmpeg → whisper-cli → exact transcript, through the real `/api/voice/transcribe` endpoint. |
-| UI | **Visually verified** with Playwright: all four tabs, plus the full chat-driven email flow (type request → review the draft card inline → press Send → case status updates), no console errors. |
+| UI | **Visually verified** with Playwright: all five tabs, the full chat-driven email flow (type request → review the draft card inline → press Send → case status updates), and the Settings save/add/remove round-trips, no console errors. |
 | Timezone | Medication/meal times are compared in this machine's own local timezone by default. Set `NANNADESK_TIMEZONE=Asia/Kolkata` explicitly if running the backend somewhere other than Dad's machine but scheduling for his location. |
+| Voice output (ElevenLabs TTS) | **Real**, optional, on-demand — a 🔊 button on each NannaDesk chat reply (`/api/voice/speak`). Closes the loop the spec's voice-first principle asks for: NannaDesk could only listen (whisper.cpp) before this. Degrades silently to text-only with no `ELEVENLABS_API_KEY` set — never breaks the chat response. |
+| Real-data setup | **Real** — a Settings tab (`/api/profile`, `/api/medications`) to enter Dad's actual profile and medications through the browser, no script-editing required. `scripts/seed_demo_data.py --wipe-only` clears the fictional seed first. |
 
 ### Known limitations (by design, not oversights)
 
@@ -53,6 +55,16 @@ playwright install chromium
 
 Without this, government search falls back to the weaker static-page fetch
 rather than failing — but the live demo story needs it.
+
+Voice output is optional. To enable it, follow ElevenLabs' own setup flow
+(`elevenlabs.io/app/settings/api-keys`) and put the key in `apps/api/.env`:
+
+```
+ELEVENLABS_API_KEY=your-key-here
+```
+
+Note this is a **plain** env var, not `NANNADESK_`-prefixed like the rest
+of this app's config — see `app/voice/tts.py`'s docstring for why.
 
 Models (not checked into git — see `.gitignore`):
 
@@ -85,6 +97,16 @@ Open http://localhost:5173. The dev server proxies `/api` to `:8000`.
 Use Python **3.13**, not 3.14 — `pydantic-core` doesn't have prebuilt
 wheels for 3.14 yet and fails to build from source.
 
+### Switching from demo data to a real profile
+
+```bash
+python scripts/seed_demo_data.py --wipe-only   # clears the fictional seed, leaves the schema
+```
+
+Then open the **Settings** tab and fill in a real profile and medications
+through the browser. This data lives only in the local SQLite file
+(`data/nannadesk.db`, gitignored) — it's never committed or published.
+
 ### Demo story (spec §20.3)
 
 1. Ask → "Any update on the latest PRC?" — searches the real GO register live and cites real order numbers, dates, and subjects, with a source link.
@@ -100,7 +122,7 @@ source apps/api/.venv/bin/activate
 python -m pytest -q
 ```
 
-70 tests, all deterministic — a conftest autouse fixture stubs the LLM as
+81 tests, all deterministic — a conftest autouse fixture stubs the LLM as
 unavailable, and the GOIR browser search is mocked rather than hitting the
 live site, so nothing depends on llama-server or network access. They
 cover the medication/meal state machine never guessing a confirmation

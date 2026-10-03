@@ -4,6 +4,7 @@ import { Home } from "./pages/Home";
 import { Chat } from "./pages/Chat";
 import { Reports } from "./pages/Reports";
 import { Work } from "./pages/Work";
+import { Settings } from "./pages/Settings";
 
 export default function App() {
   const [tab, setTab] = useState<Tab>("home");
@@ -23,6 +24,7 @@ export default function App() {
           {tab === "ask" && <Chat pendingMessage={pendingMessage} onConsumed={() => setPendingMessage(null)} />}
           {tab === "documents" && <Reports />}
           {tab === "work" && <Work />}
+          {tab === "settings" && <Settings />}
         </main>
       </div>
     </div>

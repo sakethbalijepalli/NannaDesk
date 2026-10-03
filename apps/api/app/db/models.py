@@ -16,6 +16,60 @@ class ChatRequest(BaseModel):
     message: str = Field(min_length=1)
 
 
+class SpeakRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=4000)
+
+
+# ---------------------------------------------------------------------------
+# Profile and medications — real setup, replacing the demo seed (spec §7.1,
+# §7.2). profile is a singleton: exactly one row, upserted.
+# ---------------------------------------------------------------------------
+
+
+class ProfileIn(BaseModel):
+    name: str = Field(min_length=1)
+    preferred_language: Literal["en", "te", "te-en"] = "en"
+    department: Optional[str] = None
+    designation: Optional[str] = None
+    office: Optional[str] = None
+    employee_code: Optional[str] = None
+    ddo_name: Optional[str] = None
+    ddo_email: Optional[str] = None
+    signature: Optional[str] = None
+    family_escalation_enabled: bool = False
+    family_contact_name: Optional[str] = None
+    family_contact_email: Optional[str] = None
+
+
+class ProfileOut(ProfileIn):
+    id: int
+
+
+class MedicationScheduleIn(BaseModel):
+    time: str = Field(pattern=r"^([01]\d|2[0-3]):[0-5]\d$")  # 'HH:MM', 24h
+    meal_dependency: Optional[Literal["breakfast", "lunch", "dinner"]] = None
+    repeat_minutes: int = Field(default=30, ge=5, le=240)
+    max_followups: int = Field(default=2, ge=0, le=10)
+
+
+class MedicationIn(BaseModel):
+    name: str = Field(min_length=1)
+    instructions: Optional[str] = None
+    schedule: MedicationScheduleIn
+
+
+class MedicationOut(BaseModel):
+    id: int
+    name: str
+    instructions: Optional[str] = None
+    active: bool
+    schedule_id: int
+    time: str
+    meal_dependency: Optional[str] = None
+    repeat_minutes: int
+    max_followups: int
+
+
 class Source(BaseModel):
     title: str
     date: Optional[str] = None

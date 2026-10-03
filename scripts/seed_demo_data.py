@@ -51,6 +51,33 @@ def _write_office_memo_pdf(path: Path, title: str, body_lines: list[str]) -> Non
     doc.close()
 
 
+def wipe(db) -> None:
+    """Deletes every row (all tables), leaving the schema intact. Reminders
+    before events before medication_schedules before medications — FK order
+    matters here (SQLite enforces it)."""
+    for table in (
+        "lab_results", "documents", "email_drafts", "case_messages", "cases",
+        "reminders", "events", "medication_schedules", "medications", "profile",
+        "audit_events",
+    ):
+        db.execute(f"DELETE FROM {table}")
+    db.execute("DELETE FROM personal_fts")
+    db.execute("DELETE FROM government_fts")
+
+
+def wipe_only() -> None:
+    """Clears demo data WITHOUT reseeding anything — for switching to real
+    data through the Settings screen (profile/medications) instead of
+    editing this script. Leaves cases/documents/reports empty too, since
+    those accumulate naturally from real use (drafting email, uploading a
+    report), not from a one-time setup step.
+    """
+    init_db()
+    with get_db() as db:
+        wipe(db)
+    print("Wiped. All tables are empty — set up a real profile and medications from the Settings screen.")
+
+
 def seed(reset: bool = False) -> None:
     init_db()
     now = datetime.now(timezone.utc)
@@ -62,14 +89,7 @@ def seed(reset: bool = False) -> None:
             return
 
         if reset:
-            for table in (
-                "lab_results", "documents", "email_drafts", "case_messages", "cases",
-                "reminders", "events", "medication_schedules", "medications", "profile",
-                "audit_events",
-            ):
-                db.execute(f"DELETE FROM {table}")
-            db.execute("DELETE FROM personal_fts")
-            db.execute("DELETE FROM government_fts")
+            wipe(db)
 
         # --- Profile (fictional) ------------------------------------------------
         db.execute(
@@ -196,5 +216,12 @@ def seed(reset: bool = False) -> None:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--reset", action="store_true", help="Wipe existing data before reseeding")
+    parser.add_argument(
+        "--wipe-only", action="store_true",
+        help="Wipe demo data and leave the database empty, for switching to a real profile via Settings",
+    )
     args = parser.parse_args()
-    seed(reset=args.reset)
+    if args.wipe_only:
+        wipe_only()
+    else:
+        seed(reset=args.reset)
