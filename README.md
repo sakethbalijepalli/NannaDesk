@@ -22,7 +22,7 @@ an already-decided, already-fetched result.
 | Report parsing + explanation (PyMuPDF → flag → LLM phrasing) | **Real** — tested against two synthetic demo reports |
 | Local LLM (Qwen3.5-0.8B, llama.cpp) | **Real** — runs fully offline |
 | Voice transcription (whisper.cpp) | **Real** — `/api/voice/transcribe`, shells out per request |
-| Government retrieval | **Real fetch** against live `telangana.gov.in` / `treasury.telangana.gov.in`, with a real allowlist, real passage extraction, and a real LLM summary when one's reachable. **Confirmed it cannot yet answer a substantive PRC question**: checked directly — neither allowlisted page's static HTML contains "pay revision" (or "PRC") anywhere, because the real GO listing is client-rendered. The honest "didn't find anything on the official page" response is what actually ships for that query today, not a working live answer — no JS execution would be the real fix. |
+| Government retrieval | **Real search against the actual GO repository**, goir.telangana.gov.in (Telangana's Government Order Issue Register) — not the originally-tried `telangana.gov.in/government-orders/` page, which turned out not to be a GO listing at all (checked directly, with and without JS rendering: it's a generic info page). The real repository is an ASP.NET form-postback search, so this is driven with a persistent headless Chromium (Playwright) rather than a plain HTTP GET. Verified live: "Any update on PRC?" returns real GO numbers, departments, dates, and subject lines about actual Pay Revision Commission orders. Falls back to the old static-page fetch only if Chromium isn't installed. |
 | Email | **Mock provider**, backed by the real `case_messages`/`cases` tables (not a toy in-memory list) — draft/search/send/follow-up-date all persist. Outlook/Microsoft Graph (`app/email/outlook.py`) needs an Azure app registration this build doesn't have — it raises a clear "not connected" error rather than silently falling back. |
 | Family escalation | Implemented, disabled by default (`profile.family_escalation_enabled`) |
 | Voice transcription | **Verified end-to-end**: `say` → ffmpeg → whisper-cli → exact transcript, through the real `/api/voice/transcribe` endpoint. |
@@ -35,12 +35,24 @@ an already-decided, already-fetched result.
 - Chat's "explain this report" always points to the Documents tab rather than guessing which upload you mean — there's no "current report in this conversation" concept yet.
 - Meal check-in reminders use fixed default times (8am/1pm/8pm), not per-profile configuration.
 - The government source-matching in `app/ai/router.py` / `app/government/search.py` is keyword-based, as is all intent routing — see that module's docstring for why.
+- GOIR's search is a literal exact-text substring match, not a tokenized multi-word search (confirmed live). A query combining a generic trigger word (e.g. "circular") with unrelated terms can return real-but-loosely-related orders rather than "no results" — a standalone "circular" query is itself a legitimate spec-intended trigger, so this wasn't over-engineered further. Specific topics (PRC, DA, salary, pension) are unaffected.
+- A GOIR search takes ~5s (headless page load + form postback + LLM phrasing) — slower than the other chat intents, with no loading indicator in the chat UI yet beyond the disabled input.
 
 ## Prerequisites (macOS)
 
 ```bash
 brew install llama.cpp whisper-cpp ffmpeg
 ```
+
+Government search drives a real headless Chromium (see "Government retrieval"
+above). After installing Python deps below:
+
+```bash
+playwright install chromium
+```
+
+Without this, government search falls back to the weaker static-page fetch
+rather than failing — but the live demo story needs it.
 
 Models (not checked into git — see `.gitignore`):
 
@@ -75,7 +87,7 @@ wheels for 3.14 yet and fails to build from source.
 
 ### Demo story (spec §20.3)
 
-1. Ask → "Any update on the latest PRC?" — fetches an official source live and cites it with a date; today it honestly reports no PRC-specific content found there rather than a live substantive answer (see the government retrieval limitation above — this is the one flow that doesn't fully deliver yet).
+1. Ask → "Any update on the latest PRC?" — searches the real GO register live and cites real order numbers, dates, and subjects, with a source link.
 2. Ask → "Write to my officer asking about my PF payment." — a real draft appears inline, tied to the PF case; press Send on the card.
 3. Documents → upload `data/reports/demo-blood-report-2.pdf`, get a calm explanation that still shows the abnormal values.
 4. Home → confirm breakfast, then ask "Did I take my medicine?" (or "Have I taken my medicine?") for an exact, never-guessed status.
@@ -88,16 +100,18 @@ source apps/api/.venv/bin/activate
 python -m pytest -q
 ```
 
-54 tests, all deterministic — a conftest autouse fixture stubs the LLM as
-unavailable so nothing depends on llama-server actually running. They
+70 tests, all deterministic — a conftest autouse fixture stubs the LLM as
+unavailable, and the GOIR browser search is mocked rather than hitting the
+live site, so nothing depends on llama-server or network access. They
 cover the medication/meal state machine never guessing a confirmation
 (including the full reminder scheduler: meal gating, snooze timing,
 followup-to-NOT_CONFIRMED escalation, case follow-up detection), the
 router's safety/question/confirmation classification against phrases
-taken verbatim from the spec, the "no-silent-sending" email gate, the
-government freshness rule falling back to "internet required" instead of
-a guess, the personal/government index separation, and the audit trail
-carrying no free text.
+taken verbatim from the spec (plus regressions for a question or negation
+never recording a medication confirmation), the "no-silent-sending" email
+gate, the government freshness rule falling back to "internet required"
+instead of a guess, the personal/government index separation, and the
+audit trail carrying no free text.
 
 ## Repository layout
 
@@ -109,6 +123,10 @@ See spec §6. Notable deviations:
 - `app/email/mock.py` reads/writes through the `case_messages` table
   instead of its own in-memory inbox, so seeded demo email persists
   across restarts.
+- `app/government/goir.py` is new (not in spec's repo layout): a
+  Playwright-driven search of the real GO repository, started once at
+  FastAPI startup and reused across requests. See its docstring for why
+  `app/government/search.py`'s original plain-HTTP approach couldn't work.
 
 ## Design
 

@@ -36,6 +36,26 @@ SHORT_ACRONYMS = {"pf", "da", "go"}
 SYNONYMS = {"prc": ["pay revision"]}
 
 
+def extract_search_terms(query: str) -> list[str]:
+    """Strips generic words/punctuation and expands known synonyms — shared
+    by `find_passages` (static-page keyword windows) and the GOIR search
+    phrase builder (app/government/goir.py), since both need "what is this
+    question actually about" rather than the full sentence.
+
+    Synonym expansions are prepended, not appended: GOIR's search was
+    confirmed (manual testing) to return more on-topic results for "pay
+    revision" than for the bare acronym "prc", which matches much more
+    loosely.
+    """
+    # Strip punctuation per word ("PRC?" -> "prc") — a trailing "?" on the
+    # question's last word otherwise never matches plain page text (caught
+    # during manual end-to-end testing of "Any update on PRC?").
+    words = [re.sub(r"[^\w]", "", w).lower() for w in query.split()]
+    terms = [w for w in words if (len(w) > 2 or w in SHORT_ACRONYMS) and w not in GENERIC_TERMS]
+    expansions = [syn for term in terms for syn in SYNONYMS.get(term, [])]
+    return expansions + terms
+
+
 def find_passages(text: str, query: str, window: int = 240, max_passages: int = 3) -> list[str] | None:
     """Naive keyword-window passage extraction — enough to ground an LLM
     summary in real retrieved text without adding a ranking model.
@@ -44,13 +64,7 @@ def find_passages(text: str, query: str, window: int = 240, max_passages: int = 
     specific-enough terms to search for — callers must treat that as "not
     enough information", never silently summarize unrelated page text.
     """
-    # Strip punctuation per word ("PRC?" -> "prc") — a trailing "?" on the
-    # question's last word otherwise never matches plain page text (caught
-    # during manual end-to-end testing of "Any update on PRC?").
-    words = [re.sub(r"[^\w]", "", w).lower() for w in query.split()]
-    terms = [w for w in words if (len(w) > 2 or w in SHORT_ACRONYMS) and w not in GENERIC_TERMS]
-    for term in list(terms):
-        terms.extend(SYNONYMS.get(term, []))
+    terms = extract_search_terms(query)
     if not terms:
         return None
 

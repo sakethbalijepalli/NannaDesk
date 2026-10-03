@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import cases, chat, documents, emails, government, reminders, reports, voice
 from app.db.connection import init_db
+from app.government.goir import start_browser, stop_browser
 from app.reminders.scheduler import start_scheduler, stop_scheduler
 
 logging.basicConfig(level=logging.INFO)
@@ -18,7 +19,9 @@ logging.basicConfig(level=logging.INFO)
 async def lifespan(app: FastAPI):
     init_db()
     start_scheduler(interval_seconds=60)
+    await start_browser()
     yield
+    await stop_browser()
     stop_scheduler()
 
 
